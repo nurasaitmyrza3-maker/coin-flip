@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <title>Coin Flip Game</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            text-align: center; 
+            padding-top: 50px; 
+            background-color: #f0f2f5; 
+        }
+        .container {
+            background: white;
+            display: inline-block;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        h2 { color: #333; }
+        button { 
+            padding: 12px 25px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin: 10px; 
+            border-radius: 8px; 
+            border: none; 
+            transition: 0.3s; 
+            font-weight: bold;
+        }
+        .btn-play { background-color: #007bff; color: white; }
+        .btn-play:hover { background-color: #0056b3; }
+        .btn-result { background-color: #28a745; color: white; width: 100%; }
+        .btn-result:hover { background-color: #218838; }
+        #result { 
+            font-weight: bold; 
+            font-size: 22px; 
+            margin-top: 20px; 
+            min-height: 30px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Орел немесе Решка</h2>
+
+        <div>
+            <button class="btn-play" onclick="play(0)">Орел (0)</button>
+            <button class="btn-play" onclick="play(1)">Решка (1)</button>
+        </div>
+
+        <br>
+
+        <button class="btn-result" onclick="getGamePlayed()">Нәтижені көру (Get Result)</button>
+
+        <p id="result">Ойынды бастаңыз...</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.min.js"></script>
+
+    <script>
+        let provider;
+        let signer;
+        let contract;
+
+        // 1. КОНТРАКТ АДРЕСІ (Remix-тегі Deployed Contracts-тен алынды)
+        const contractAddress = "0xd9145CCE52D386f254917e481eB44e9943F39138";
+
+        // 2. ABI (Сен жіберген соңғы нұсқа)
+        const abi = [
+            {
+                "inputs": [{ "internalType": "uint8", "name": "_side", "type": "uint8" }],
+                "name": "playGame",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "stateMutability": "payable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    { "indexed": false, "internalType": "address", "name": "player", "type": "address" },
+                    { "indexed": false, "internalType": "bool", "name": "isWinner", "type": "bool" }
+                ],
+                "name": "GamePlayed",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "withdraw",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "stateMutability": "payable",
+                "type": "receive"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        async function Init() {
+            if (window.ethereum) {
+                try {
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    contract = new ethers.Contract(contractAddress, abi, signer);
+                    console.log("Дайын!");
+                } catch (err) {
+                    console.error("Қате:", err);
+                }
+            } else {
+                alert("MetaMask орнатыңыз!");
+            }
+        }
+
+        async function play(side) {
+            try {
+                document.getElementById("result").innerText = "Транзакция жіберілуде...";
+                // Ставка: 0.0001 BNB
+                const tx = await contract.playGame(side, {
+                    value: ethers.parseEther("0.0001")
+                });
+                await tx.wait();
+                document.getElementById("result").innerText = "Сәтті! Нәтижені тексеріңіз.";
+            } catch (error) {
+                document.getElementById("result").innerText = "Қате: " + (error.reason || "Бас тартылды");
+            }
+        }
+
+        async function getGamePlayed() {
+            try {
+                const block = await provider.getBlockNumber();
+                const events = await contract.queryFilter("GamePlayed", block - 100, block);
+
+                if (events.length === 0) {
+                    document.getElementById("result").innerText = "Ойын табылмады.";
+                    return;
+                }
+
+                const isWinner = events[events.length - 1].args.isWinner;
+                if (isWinner) {
+                    document.getElementById("result").style.color = "#28a745";
+                    document.getElementById("result").innerText = "Ұттыңыз! 🎉";
+                } else {
+                    document.getElementById("result").style.color = "#dc3545";
+                    document.getElementById("result").innerText = "Ұтылдыңыз... ❌";
+                }
+            } catch (error) {
+                document.getElementById("result").innerText = "Қате шықты.";
+            }
+        }
+
+        Init();
+    </script>
+</body>
+</html>
